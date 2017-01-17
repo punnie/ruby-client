@@ -15,12 +15,16 @@ module SplitIoClient
           config.logger.debug("GET #{url}") if config.debug_enabled
         end
       rescue StandardError => e
-        config.logger.warn("#{e}\nURL:#{url}\ndata:#{data}\nparams:#{params}")
+        config.logger.warn("#{e}\nURL:#{url}\nparams:#{params}")
+
+        false
       end
 
-      def post_api(url, config, api_key, data, params = {})
+      def post_api(url, config, api_key, data, headers = {}, params = {})
         api_client.post(url) do |req|
-          req.headers = common_headers(api_key, config).merge('Content-Type' => 'application/json')
+          req.headers = common_headers(api_key, config)
+            .merge('Content-Type' => 'application/json')
+            .merge(headers)
 
           req.body = data.to_json
 
@@ -35,6 +39,8 @@ module SplitIoClient
         end
       rescue StandardError => e
         config.logger.warn("#{e}\nURL:#{url}\ndata:#{data}\nparams:#{params}")
+
+        false
       end
 
       private
