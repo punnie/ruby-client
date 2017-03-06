@@ -34,13 +34,14 @@ module SplitIoClient
       def fetch_segments(name, prefix, since)
         segments = []
         segment = get_api("#{@config.base_uri}/segmentChanges/#{name}", @config, @api_key, since: since)
+        status = splits.status[0].to_i
 
         if segment == false
           @config.logger.error("Failed to make a http request")
-        elsif segment.status / 100 == 2
-          segment_content = JSON.parse(segment.body, symbolize_names: true)
+        elsif (200..299).include? status
+          segment_content = JSON.parse(segment, symbolize_names: true)
           @segments_repository.set_change_number(name, segment_content[:till])
-          @metrics.count(prefix + '.status.' + segment.status.to_s, 1)
+          @metrics.count("#{prefix}.status.#{status}", 1)
 
           if @config.debug_enabled
             @config.logger.debug("\'#{segment_content[:name]}\' segment retrieved.")
@@ -51,8 +52,8 @@ module SplitIoClient
 
           segments << segment_content
         else
-          @config.logger.error("Unexpected result from API Call for Segment #{name} status #{segment.status.to_s} since #{since.to_s}")
-          @metrics.count(prefix + '.status.' + segment.status.to_s, 1)
+          @config.logger.error("Unexpected result from API Call for Segment #{name} status #{status} since #{since}")
+          @metrics.count("#{prefix}.status.#{status}", 1)
         end
 
         segments

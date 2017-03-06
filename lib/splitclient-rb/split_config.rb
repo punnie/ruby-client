@@ -35,6 +35,7 @@ module SplitIoClient
       )
       @connection_timeout = opts[:connection_timeout] || SplitConfig.default_connection_timeout
       @read_timeout = opts[:read_timeout] || SplitConfig.default_read_timeout
+      @proxy = opts[:proxy] || true # default options is to check scheme_proxy env variable (scheme can be http, https)
       @features_refresh_rate = opts[:features_refresh_rate] || SplitConfig.default_features_refresh_rate
       @segments_refresh_rate = opts[:segments_refresh_rate] || SplitConfig.default_segments_refresh_rate
       @metrics_refresh_rate = opts[:metrics_refresh_rate] || SplitConfig.default_metrics_refresh_rate
@@ -86,6 +87,13 @@ module SplitIoClient
     #
     # @return [Int] The timeout in seconds.
     attr_reader :read_timeout
+
+    # The proxy to use to make HTTP requests
+    #
+    # @return [String] Proxy URL:port
+    # @return [TrueClass] Use proxy setting defined in the ENV
+    # @return [FalseClass/NilClass] Use direct connection, ignore ENV variable setting
+    attr_reader :proxy
 
     #
     # The cache adapter to store splits/segments in

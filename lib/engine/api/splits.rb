@@ -11,18 +11,19 @@ module SplitIoClient
         start = Time.now
         prefix = 'splitChangeFetcher'
         splits = get_api("#{@config.base_uri}/splitChanges", @config, @api_key, since: since)
+        status = splits.status[0].to_i
 
         if splits == false
           @config.logger.error("Failed to make a http request")
-        elsif splits.status / 100 == 2
-          result = splits_with_segment_names(splits.body)
+        elsif (200..299).include? status
+          result = splits_with_segment_names(splits)
 
-          @metrics.count(prefix + '.status.' + splits.status.to_s, 1)
+          @metrics.count("#{prefix}.status.#{status}", 1)
 
           @config.logger.debug("#{result[:splits].length} splits retrieved. since=#{since}") if @config.debug_enabled and result[:splits].length > 0
           @config.logger.debug("#{result}") if @config.transport_debug_enabled
         else
-          @metrics.count(prefix + '.status.' + splits.status.to_s, 1)
+          @metrics.count("#{prefix}.status.#{status}", 1)
 
           @config.logger.error('Unexpected result from Splits API call')
         end
