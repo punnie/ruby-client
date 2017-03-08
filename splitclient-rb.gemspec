@@ -27,7 +27,6 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "pry"
   spec.add_development_dependency "pry-byebug"
   spec.add_development_dependency "simplecov"
-  spec.add_development_dependency "redis"
 
   spec.add_runtime_dependency "json", "~> 1.8"
   spec.add_runtime_dependency "thread_safe"
@@ -37,4 +36,5 @@ Gem::Specification.new do |spec|
   spec.add_runtime_dependency "faraday_middleware"
   spec.add_runtime_dependency "net-http-persistent", "<= 2.9.4"
   spec.add_runtime_dependency "digest-murmurhash"
+  spec.add_runtime_dependency "redis"
 end

@@ -69,14 +69,14 @@ module SplitIoClient
         if split.nil?
           return parsed_treatment(multiple, treatment_label_change_number)
         else
-          treatment_label_change_number = SplitIoClient::Engine::Parser::SplitTreatment.new(@segments_repository).call(
+          treatment_label_change_number = split_treatment.call(
             { bucketing_key: bucketing_key, matching_key: matching_key }, split, attributes
           )
         end
       rescue StandardError => error
         @config.log_found_exception(__method__.to_s, error)
 
-        return parsed_treatment(multiple, treatment_label_change_number)
+        return parsed_treatment(multiple, treatment_label_change_number[:hash])
       end
 
       begin
@@ -125,12 +125,10 @@ module SplitIoClient
       end
     end
 
-    #
-    # method that returns the sdk gem version
-    #
-    # @return [string] version value for this sdk
-    def self.sdk_version
-      'ruby-'+SplitIoClient::VERSION
+    private
+
+    def split_treatment
+      @split_treatment ||= SplitIoClient::Engine::Parser::SplitTreatment.new(@segments_repository, @config)    
     end
   end
 end

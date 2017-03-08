@@ -23,28 +23,52 @@ module SplitIoClient
       # @param id [string] user key
       # @param seed [number] seed for the user key
       # @param partitions [object] array of partitions
+      # @param legacy [true/false] whether to use legacy hash
       #
-      # @return traetment [object] treatment value
-      def get_treatment(id, seed, partitions)
-        if partitions.empty?
-          return Treatments::CONTROL
-        end
-
-        if hundred_percent_one_treatment?(partitions)
-          return (partitions.first).treatment
-        end
-
-        return get_treatment_for_key(bucket(count_hash(id, seed)), partitions)
+      # @return treatment [object] treatment value
+      def get_treatment(id, seed, partitions, config, legacy = true)
+        return Treatments::CONTROL if partitions.empty?
+        return partitions[0].treatment if hundred_percent_one_treatment?(partitions)
+        return get_treatment_for_key(bucket(count_hash(id, seed, legacy)), partitions)
       end
 
       # returns a hash value for the give key, seed pair
       #
       # @param key [String] user key
       # @param seed [Fixnum] seed for the user key
+      # @param legacy [true/false] whether to use legacy hash
       #
       # @return hash [String] hash value
-      def count_hash(key, seed)
+      def count_hash(key, seed, legacy = true)
+        legacy ? legacy_hash(key, seed) : murmur_hash(key, seed)
+      end
+
+      def murmur_hash(key, seed)
         Digest::MurmurHash3_x86_32.rawdigest(key, [seed].pack('L'))
+      end
+
+      def legacy_hash(key, seed)
+        h = 0
+        for i in 0..key.length-1
+          h = to_int32(31 * h + key[i].ord)
+        end
+        h^seed
+      end
+
+      def to_int32(number)
+        begin
+          sign = number < 0 ? -1 : 1
+          abs = number.abs
+          return 0 if abs == 0 || abs == Float::INFINITY
+        rescue StandardError
+          return 0
+        end
+
+        pos_int = sign * abs.floor
+        int_32bit = pos_int % 2**32
+
+        return int_32bit - 2**32 if int_32bit >= 2**31
+        int_32bit
       end
 
       #

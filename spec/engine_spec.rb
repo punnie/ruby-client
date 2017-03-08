@@ -4,31 +4,35 @@ require 'securerandom'
 describe SplitIoClient do
   RSpec.shared_examples 'engine specs' do |cache_adapter|
     let(:config) do
-      { logger: Logger.new('/dev/null'), cache_adapter: cache_adapter }
+      { logger: Logger.new('/dev/null'), cache_adapter: cache_adapter, redis_namespace: 'test' }
     end
+
+    around :each do |example|
+      redis = Redis.new
+      redis.flushall
+
+      begin
+        example.run
+      ensure
+        redis.flushall
+      end
+    end
+
 
     subject { SplitIoClient::SplitFactory.new('', config).client }
 
-    let(:segments_json) { File.read(File.expand_path(File.join(File.dirname(__FILE__), 'test_data/segments/engine_segments.json'))) }
-    let(:segments2_json) { File.read(File.expand_path(File.join(File.dirname(__FILE__), 'test_data/segments/engine_segments2.json'))) }
+    let(:segments_json) { File.read(File.expand_path('spec/test_data/segments/engine_segments.json')) }
+    let(:segments2_json) { File.read(File.expand_path('spec/test_data/segments/engine_segments2.json')) }
 
-    let(:all_keys_matcher_json) { File.read(File.expand_path(File.join(File.dirname(__FILE__), 'test_data/splits/engine/all_keys_matcher.json'))) }
-    let(:killed_json) { File.read(File.expand_path(File.join(File.dirname(__FILE__), 'test_data/splits/engine/killed.json'))) }
-    let(:segment_deleted_matcher_json) { File.read(File.expand_path(File.join(File.dirname(__FILE__), 'test_data/splits/engine/segment_deleted_matcher.json'))) }
-    let(:segment_matcher_json) { File.read(File.expand_path(File.join(File.dirname(__FILE__), 'test_data/splits/engine/segment_matcher.json'))) }
-    let(:segment_matcher2_json) { File.read(File.expand_path(File.join(File.dirname(__FILE__), 'test_data/splits/engine/segment_matcher2.json'))) }
-    let(:whitelist_matcher_json) { File.read(File.expand_path(File.join(File.dirname(__FILE__), 'test_data/splits/engine/whitelist_matcher.json'))) }
-    let(:impressions_test_json) { File.read(File.expand_path(File.join(File.dirname(__FILE__), 'test_data/splits/engine/impressions_test.json'))) }
-
-    before :each do
-      redis = Redis.new
-      redis.flushall
-    end
-
-    after :each do
-      redis = Redis.new
-      redis.flushall
-    end
+    let(:all_keys_matcher_json) { File.read(File.expand_path('spec/test_data/splits/engine/all_keys_matcher.json')) }
+    let(:killed_json) { File.read(File.expand_path('spec/test_data/splits/engine/killed.json')) }
+    let(:segment_deleted_matcher_json) { File.read(File.expand_path('spec/test_data/splits/engine/segment_deleted_matcher.json')) }
+    let(:segment_matcher_json) { File.read(File.expand_path('spec/test_data/splits/engine/segment_matcher.json')) }
+    let(:segment_matcher2_json) { File.read(File.expand_path('spec/test_data/splits/engine/segment_matcher2.json')) }
+    let(:segment_matcher2_algo_1_json) { File.read(File.expand_path('spec/test_data/splits/engine/segment_matcher2_algo_1.json')) }
+    let(:segment_matcher2_algo_2_json) { File.read(File.expand_path('spec/test_data/splits/engine/segment_matcher2_algo_2.json')) }
+    let(:whitelist_matcher_json) { File.read(File.expand_path('spec/test_data/splits/engine/whitelist_matcher.json')) }
+    let(:impressions_test_json) { File.read(File.expand_path('spec/test_data/splits/engine/impressions_test.json')) }
 
     context '#get_treatment' do
       before do
@@ -81,7 +85,7 @@ describe SplitIoClient do
 
       context 'producer mode' do
         let(:config) do
-          { logger: Logger.new('/dev/null'), mode: :producer, cache_adapter: cache_adapter }
+          { logger: Logger.new('/dev/null'), mode: :producer, cache_adapter: cache_adapter, redis_namespace: 'test' }
         end
 
         it 'stores splits' do
@@ -91,7 +95,7 @@ describe SplitIoClient do
 
       context 'consumer mode' do
         let(:config) do
-          { logger: Logger.new('/dev/null'), mode: :consumer, cache_adapter: cache_adapter }
+          { logger: Logger.new('/dev/null'), mode: :consumer, cache_adapter: cache_adapter, redis_namespace: 'test' }
         end
 
         it 'stores splits' do
@@ -179,7 +183,7 @@ describe SplitIoClient do
         )
         impressions = subject.instance_variable_get(:@adapter).impressions_repository.clear
 
-        expect(impressions.first[:impressions]['key_name']).to eq('fake_user_id_1')
+        expect(impressions.first[:impressions]['keyName']).to eq('fake_user_id_1')
       end
 
       it 'validates the feature by bucketing_key for nil matching_key' do
@@ -280,26 +284,24 @@ describe SplitIoClient do
       end
 
       it 'returns correct impressions for get_treatments' do
-        subject.get_treatments('21', ["sample_feature", "beta_feature"])
-        subject.get_treatments('22', ["sample_feature", "beta_feature"])
-        subject.get_treatments('23', ["sample_feature", "beta_feature"])
-        subject.get_treatments('24', ["sample_feature", "beta_feature"])
-        subject.get_treatments('25', ["sample_feature", "beta_feature"])
-        subject.get_treatments('26', ["sample_feature", "beta_feature"])
+        (21..26).each do |i|
+          subject.get_treatments(i.to_s, %w(sample_feature beta_feature))
+        end
         # Need this because we're storing impressions in the Set
         # Without sleep we may have identical impressions (including time)
         # In that case only one impression with key "26" would be stored
         sleep 0.01
-        subject.get_treatments('26', ["sample_feature", "beta_feature"])
+        subject.get_treatments('26', %w(sample_feature beta_feature))
 
         expect(impressions.size).to eq(14)
+
         expect(formatted_impressions.find { |i| i[:testName] == 'sample_feature' }[:keyImpressions].size).to eq(6)
         expect(formatted_impressions.find { |i| i[:testName] == 'beta_feature' }[:keyImpressions].size).to eq(6)
       end
 
       context 'when impressions are disabled' do
         let(:config) do
-          { logger: Logger.new('/dev/null'), cache_adapter: cache_adapter, impressions_queue_size: -1 }
+          { logger: Logger.new('/dev/null'), cache_adapter: cache_adapter, impressions_queue_size: -1, redis_namespace: 'test' }
         end
         let(:impressions) { subject.instance_variable_get(:@impressions_repository).clear }
 
@@ -318,6 +320,47 @@ describe SplitIoClient do
           expect(subject.get_treatment('21', "sample_feature")).to eq(SplitIoClient::Treatments::OFF)
 
           expect(impressions).to eq([])
+        end
+      end
+
+      context 'hashing algorithms' do
+        before do
+          stub_request(:get, 'https://sdk.split.io/api/segmentChanges/demo?since=-1')
+            .to_return(status: 200, body: segments_json)
+        end
+
+        let(:key) do
+          { bucketing_key: 'bucketing_key', matching_key: 'fake_user_id_1'  }
+        end
+
+        it 'calls legacy hash by default' do
+          stub_request(:get, 'https://sdk.split.io/api/splitChanges?since=-1')
+            .to_return(status: 200, body: segment_matcher2_json)
+
+          expect(SplitIoClient::Splitter).to receive(:legacy_hash).and_call_original
+          expect(SplitIoClient::Splitter).not_to receive(:murmur_hash)
+
+          expect(subject.get_treatment(key, 'new_feature')).to eq SplitIoClient::Treatments::ON
+        end
+
+        it 'calls legacy hash when algo 1' do
+          stub_request(:get, 'https://sdk.split.io/api/splitChanges?since=-1')
+            .to_return(status: 200, body: segment_matcher2_algo_1_json)
+
+          expect(SplitIoClient::Splitter).to receive(:legacy_hash).and_call_original
+          expect(SplitIoClient::Splitter).not_to receive(:murmur_hash)
+
+          expect(subject.get_treatment(key, 'new_feature')).to eq SplitIoClient::Treatments::ON
+        end
+
+        it 'calls murmur hash when algo 2' do
+          stub_request(:get, 'https://sdk.split.io/api/splitChanges?since=-1')
+            .to_return(status: 200, body: segment_matcher2_algo_2_json)
+
+          expect(SplitIoClient::Splitter).to receive(:murmur_hash).and_call_original
+          expect(SplitIoClient::Splitter).not_to receive(:legacy_hash)
+
+          expect(subject.get_treatment(key, 'new_feature')).to eq SplitIoClient::Treatments::ON
         end
       end
     end

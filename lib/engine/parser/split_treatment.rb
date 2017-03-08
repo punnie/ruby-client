@@ -2,17 +2,17 @@ module SplitIoClient
   module Engine
     module Parser
       class SplitTreatment
-        def initialize(segments_repository)
+        def initialize(segments_repository, config)
           @segments_repository = segments_repository
+          @config = config
         end
 
         def call(keys, split, attributes = nil)
-          split_model = Models::Split.new(split)
           @default_treatment = split[:defaultTreatment]
 
-          return treatment(Models::Label::ARCHIVED, Treatments::CONTROL, split[:changeNumber]) if split_model.archived?
+          return treatment(Models::Label::ARCHIVED, Treatments::CONTROL, split[:changeNumber]) if Models::Split.archived?(split)
 
-          if split_model.matchable?
+          if Models::Split.matchable?(split)
             match(split, keys, attributes)
           else
             treatment(Models::Label::KILLED, @default_treatment, split[:changeNumber])
@@ -20,6 +20,10 @@ module SplitIoClient
         end
 
         private
+
+        def use_legacy_algo?(algo_version)
+          algo_version.to_i == 1 ? true : false
+        end
 
         def match(split, keys, attributes)
           split[:conditions].each do |c|
@@ -29,7 +33,7 @@ module SplitIoClient
 
             if matcher_type(condition).match?(keys[:matching_key], attributes)
               key = keys[:bucketing_key] ? keys[:bucketing_key] : keys[:matching_key]
-              result = Splitter.get_treatment(key, split[:seed], condition.partitions)
+              result = Splitter.get_treatment(key, split[:seed], condition.partitions, @config, use_legacy_algo?(split.fetch(:algo, 1)))
 
               if result.nil?
                 return treatment(Models::Label::NO_RULE_MATCHED, @default_treatment, split[:changeNumber])
