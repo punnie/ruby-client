@@ -2,9 +2,8 @@ module SplitIoClient
   module Engine
     module Parser
       class SplitTreatment
-        def initialize(segments_repository, config)
+        def initialize(segments_repository)
           @segments_repository = segments_repository
-          @config = config
         end
 
         def call(keys, split, attributes = nil)

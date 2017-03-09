@@ -128,7 +128,7 @@ module SplitIoClient
     private
 
     def split_treatment
-      @split_treatment ||= SplitIoClient::Engine::Parser::SplitTreatment.new(@segments_repository, @config)    
+      @split_treatment ||= SplitIoClient::Engine::Parser::SplitTreatment.new(@segments_repository)    
     end
   end
 end

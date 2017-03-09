@@ -6,7 +6,7 @@ describe Engine::Parser::SplitTreatment do
   let(:adapter) { Cache::Adapters::MemoryAdapters::MapAdapter.new }
   let(:config) { SplitConfig.new }
   let(:segments_repository) { Cache::Repositories::SegmentsRepository.new(adapter, config) }
-  let(:split_treatment) { described_class.new(segments_repository, config) }
+  let(:split_treatment) { described_class.new(segments_repository) }
 
   let(:killed_split) { { killed: true, defaultTreatment: 'default' } }
   let(:archived_split) { { status: 'ARCHIVED' } }
